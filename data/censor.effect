@@ -1,0 +1,56 @@
+uniform float4x4 ViewProj;
+uniform texture2d image;
+uniform float2 frame_size;
+uniform float2 packed_size;
+uniform float block_size;
+
+sampler_state nearest_sample { Filter = Point; AddressU = Clamp; AddressV = Clamp; };
+sampler_state linear_sample { Filter = Linear; AddressU = Clamp; AddressV = Clamp; };
+struct Vertex { float4 pos : POSITION; float2 uv : TEXCOORD0; };
+Vertex Project(Vertex v)
+{
+	v.pos = mul(float4(v.pos.xyz, 1.0), ViewProj);
+	return v;
+}
+
+// Four luma bytes, or two pairs of chroma bytes, per RGBA8 texel.
+float luma(float3 rgb) { return dot(rgb, float3(0.2126, 0.7152, 0.0722)); }
+float2 chroma(float3 rgb)
+{
+	float y = luma(rgb);
+	return float2((rgb.b - y) / 1.8556, (rgb.r - y) / 1.5748) + (128.0 / 255.0);
+}
+float4 PackFrame(Vertex v) : TARGET
+{
+	float2 cell = floor(v.uv * packed_size);
+	float x = cell.x * 4.0;
+	if (cell.y < frame_size.y) {
+		float2 p = float2(x + 0.5, cell.y + 0.5) / frame_size;
+		float2 dx = float2(1.0 / frame_size.x, 0.0);
+		return float4(luma(image.Sample(nearest_sample, p).rgb),
+			luma(image.Sample(nearest_sample, p + dx).rgb),
+			luma(image.Sample(nearest_sample, p + dx * 2.0).rgb),
+			luma(image.Sample(nearest_sample, p + dx * 3.0).rgb));
+	}
+	float2 p = float2(x + 1.0, (cell.y - frame_size.y) * 2.0 + 1.0) / frame_size;
+	return float4(chroma(image.Sample(linear_sample, p).rgb),
+		chroma(image.Sample(linear_sample, p + float2(2.0 / frame_size.x, 0.0)).rgb));
+}
+float4 DisplayFrame(Vertex v) : TARGET
+{
+	float2 pixel = floor(v.uv * frame_size);
+	if (block_size > 1.0)
+		pixel = min(floor(pixel / block_size) * block_size + floor(block_size * 0.5), frame_size - 1.0);
+	float group = floor(pixel.x * 0.25);
+	float channel = pixel.x - 4.0 * group;
+	float4 ys = image.Sample(nearest_sample, (float2(group, pixel.y) + 0.5) / packed_size);
+	float4 uv = image.Sample(nearest_sample, (float2(group, frame_size.y + floor(pixel.y * 0.5)) + 0.5) / packed_size);
+	float y = channel < 1.0 ? ys.r : (channel < 2.0 ? ys.g : (channel < 3.0 ? ys.b : ys.a));
+	float2 cbcr = (channel < 2.0 ? uv.rg : uv.ba) - (128.0 / 255.0);
+	float r = y + 1.5748 * cbcr.y;
+	float b = y + 1.8556 * cbcr.x;
+	float g = (y - 0.2126 * r - 0.0722 * b) / 0.7152;
+	return float4(saturate(float3(r, g, b)), 1.0);
+}
+technique Pack { pass { vertex_shader = Project(v); pixel_shader = PackFrame(v); } }
+technique Display { pass { vertex_shader = Project(v); pixel_shader = DisplayFrame(v); } }
