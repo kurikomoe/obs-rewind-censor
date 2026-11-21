@@ -1,3 +1,5 @@
+[![Github All Releases](https://img.shields.io/github/downloads/kurikomoe/obs-rewind-censor/total.svg)]()
+
 # 5050 回溯打码
 
 众所周知，OBS 的直播延迟对于打码来说并没有用处，当你反应过来存在敏感内容时，只有关闭推流才能阻止画面被 OBS 发送。
