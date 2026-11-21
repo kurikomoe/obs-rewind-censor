@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(5050-censor-filter VERSION 0.2.1 LANGUAGES CXX)
+project(5050-censor-filter VERSION 1.0.0 LANGUAGES CXX)
 
 add_library(5050-censor-filter MODULE src/filter.cpp src/video.cpp src/indicator.cpp)
 add_library(obs-sdk INTERFACE)
@@ -34,6 +34,7 @@ set_target_properties(5050-censor-filter PROPERTIES PREFIX "")
 install(TARGETS 5050-censor-filter DESTINATION 5050-censor-filter)
 install(DIRECTORY data/ DESTINATION 5050-censor-filter/data)
 install(FILES README.md DESTINATION 5050-censor-filter)
+install(DIRECTORY doc/ DESTINATION 5050-censor-filter/doc FILES_MATCHING PATTERN "*.png")
 
 option(BUILD_CAPTURE_TEST "Build the standalone libobs A/V integration test" OFF)
 if(BUILD_CAPTURE_TEST)
